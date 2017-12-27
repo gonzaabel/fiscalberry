@@ -32,9 +32,21 @@ class EscPComandos(ComandoInterface):
             raise ComandoException("Error de la impresora: %s.\nComando enviado: %s" % \
                                    (str(e), commandString))
 
+
+    def printTexto(self, texto):
+       printer = self.conector.driver
+ 
+       printer.start()
+       printer.text(texto)
+ 
+       printer.cut("PART")
+ 
+       printer.end()
+
     def print_mesa_mozo(self, setTrailer):
     	for key in setTrailer:
     		self.doble_alto_x_linea(key)
+
 
     def printRemito(self, **kwargs):
         "imprimir remito"
@@ -46,16 +58,18 @@ class EscPComandos(ComandoInterface):
         setTrailer = kwargs.get("setTrailer", None)
 
         printer.start()
+        
         printer.set("CENTER", "A", "A", 1, 1)
-
+        
         # colocar en modo ESC P
         printer._raw(chr(0x1D) + chr(0xF9) + chr(0x35) + "1")
 
         printer.set("CENTER", "A", "A", 1, 1)
+        printer.text("\n")
         fecha = datetime.datetime.strftime(datetime.datetime.now(), '%H:%M %x')
         printer.text("Fecha: %s \n\n\n" % fecha)
         printer.text("Verifique su cuenta por favor\n")
-        printer.text("COMPROBANTE NO VALIDO COMO FACTURA\n\n")
+        printer.text("NO VALIDO COMO FACTURA\n\n")
 
         if encabezado:
             printer.set("CENTER", "A", "A", 1, 2)
@@ -75,7 +89,7 @@ class EscPComandos(ComandoInterface):
         printer.set("LEFT", "A", "A", 1, 1)
 
         printer.text("CANT\tDESCRIPCION\t\tPRECIO\n")
-        printer.text("------------------------------------------\n")
+        printer.text("\n")
         tot_chars = 40
         tot_importe = 0.0
         for item in items:
@@ -89,7 +103,7 @@ class EscPComandos(ComandoInterface):
 
             printer.text("%g\t%s$%g\n" % (cant, strTabs, precio))
 
-        printer.text("------------------------------------------\n")
+        printer.text("\n")
 
         if addAdditional:
             # imprimir subtotal
@@ -104,27 +118,27 @@ class EscPComandos(ComandoInterface):
 
         # imprimir total
         printer.set("RIGHT", "A", "A", 2, 2)
-        printer.text("\t\tTOTAL: $%g\n" % tot_importe)
+        printer.text("TOTAL: $%g\n" % tot_importe)
         printer.text("\n\n\n")
 
-        extra = kwargs.get("extra", None)
-        if extra and "mesa_id" in extra:
-            mesa_id = extra.get("mesa_id")
-            printer.barcode(str(mesa_id).rjust(8, "0"), 'EAN13')
+        barcode = kwargs.get("barcode", None)
+        if barcode:            
+            printer.barcode(str(barcode).rjust(8, "0"), 'EAN13')
 
-        printer.set("CENTER", "A", "B", 1, 1)
-        # plato principal
+        printer.set("CENTER", "A", "B", 2, 2)
         if self.__preFillTrailer:
             self._setTrailer(self.__preFillTrailer)
 
         if setTrailer:
-            self._setTrailer(setTrailer)
+            self._setTrailer(setTrailer)   
 
         printer.cut("PART")
 
         # volver a poner en modo ESC Bematech, temporal para testing
-        printer._raw(chr(0x1D) + chr(0xF9) + chr(0x35) + "0")
+        # printer._raw(chr(0x1D) + chr(0xF9) + chr(0x35) + "0")
 
+        # dejar letra chica alineada izquierda
+        printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
 
     def setTrailer(self, setTrailer):
@@ -145,15 +159,19 @@ class EscPComandos(ComandoInterface):
         printer = self.conector.driver
         printer.start()
 
+        printer.set("CENTER", "A", "A", 1, 1)
+        
         # 0x1D 0xF9 0x35 1
         # colocar en modo ESC P
         printer._raw(chr(0x1D) + chr(0xF9) + chr(0x35) + "1")
+        
+        printer.set("CENTER", "A", "A", 1, 1)
 
         if setHeader:
             for headerLine in setHeader:
                 printer.text(headerLine)
+                printer.text("\n\n")
 
-        printer.set("CENTER", "A", "A", 1, 1)
         if "id" in comanda:
             if "nuevaComanda" in comanda:
                 printer.text("Nueva Comanda\n")
@@ -166,10 +184,10 @@ class EscPComandos(ComandoInterface):
         if "created" in comanda:
             fff_aux = time.strptime(comanda['created'], "%Y-%m-%d %H:%M:%S")
             fecha = time.strftime('%H:%M %x', fff_aux)
-            printer.text(fecha + "\n")
         else:
             fecha = datetime.datetime.strftime(datetime.datetime.now(), '%H:%M %x')
-            printer.text(fecha + "\n")
+            
+        printer.text(fecha + "\n")
 
         def print_plato(plato):
             "Imprimir platos"
@@ -214,13 +232,17 @@ class EscPComandos(ComandoInterface):
                 print_plato(plato)
             printer.text("\n\n")
 
-        # plato principal
+        printer.set("CENTER", "A", "B", 2, 2)
+        if self.__preFillTrailer:
+            self._setTrailer(self.__preFillTrailer)
+
         if setTrailer:
-            self._setTrailer(setTrailer)
+            self._setTrailer(setTrailer)   
 
         printer.cut("PART")
-
         # volver a poner en modo ESC Bematech, temporal para testing
         # printer._raw(chr(0x1D)+chr(0xF9)+chr(0x35)+"0")
 
+        # dejar letra chica alineada izquierda
+        printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
